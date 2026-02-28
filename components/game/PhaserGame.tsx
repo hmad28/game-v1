@@ -53,10 +53,19 @@ function PhaserGameInner({ chapterId = 1 }: { chapterId?: number }) {
   const gameRef = useRef<import('phaser').Game | null>(null);
 
   // #3 FIX: validate before passing to Phaser
+  // FIX #185: store safeChapterId in a ref so the useEffect dependency is a stable primitive
+  // and does NOT change on every parent re-render (only when the actual chapter changes).
   const safeChapterId = clampChapterId(chapterId);
+  const safeChapterIdRef = useRef(safeChapterId);
+
+  // Keep the ref in sync without triggering a re-render
+  if (safeChapterIdRef.current !== safeChapterId) {
+    safeChapterIdRef.current = safeChapterId;
+  }
 
   useEffect(() => {
     if (!containerRef.current || gameRef.current) return;
+    const currentChapterId = safeChapterIdRef.current;
     const init = async () => {
       const Phaser = (await import('phaser')).default;
       const { PreloadScene } = await import('@/lib/game/scenes/PreloadScene');
@@ -77,7 +86,7 @@ function PhaserGameInner({ chapterId = 1 }: { chapterId?: number }) {
         setTimeout(() => {
           const s = gameRef.current?.scene.getScene('GameScene');
           // #3 FIX: pass validated chapterId
-          if (s) s.scene.restart({ chapterId: safeChapterId });
+          if (s) s.scene.restart({ chapterId: currentChapterId });
         }, 100);
       });
     };
@@ -88,6 +97,9 @@ function PhaserGameInner({ chapterId = 1 }: { chapterId?: number }) {
         gameRef.current = null;
       }
     };
+  // FIX #185: depend on safeChapterId (a number) — this only changes when the chapter
+  // actually changes, not on every parent re-render. The guard `if (!gameRef.current)`
+  // also prevents double-initialization.
   }, [safeChapterId]);
 
   return <div ref={containerRef} className="w-full h-full" style={{ position: 'absolute', top: 0, left: 0 }} />;
