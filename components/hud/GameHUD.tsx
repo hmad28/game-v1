@@ -1,6 +1,6 @@
 'use client';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useGameStore, usePlayerStats, useSkillCooldowns, useActiveEffects, useNotifications, useDialogue } from '@/lib/store/gameStore';
+import { useGameStore, usePlayerStats, useSkillCooldowns, useActiveEffects, useNotifications, useDialogueQueue, useDialogueActive } from '@/lib/store/gameStore';
 import { CHARACTERS } from '@/lib/types/characters';
 import { SkillKey } from '@/lib/types/game';
 import { useState, useEffect } from 'react';
@@ -9,7 +9,10 @@ export default function GameHUD() {
   const skillCooldowns = useSkillCooldowns();
   const activeEffects = useActiveEffects();
   const notifications = useNotifications();
-  const { queue: dialogueQueue, isActive: isDialogueActive } = useDialogue();
+  // FIX #185: use separate primitive selectors instead of a combined object selector
+  // to prevent infinite re-render loops caused by new object references on every render.
+  const dialogueQueue = useDialogueQueue();
+  const isDialogueActive = useDialogueActive();
   // FIX #185: use targeted selectors instead of full store subscription to avoid
   // re-rendering GameHUD on every single state change (HP ticks, cooldowns, etc.)
   const selectedCharacter = useGameStore(s => s.selectedCharacter);

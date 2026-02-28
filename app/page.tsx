@@ -41,7 +41,7 @@ export default function Home() {
       <AnimatePresence mode="wait">
         {screen === 'main-menu' && <motion.div key="mm" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="w-full h-full"><MainMenu /></motion.div>}
         {screen === 'character-select' && <motion.div key="cs" initial={{opacity:0,x:100}} animate={{opacity:1,x:0}} exit={{opacity:0,x:-100}} className="w-full h-full"><CharacterSelect /></motion.div>}
-        {screen === 'game' && <GameScreen />}
+        {screen === 'game' && <GameScreen key="game" />}
         {screen === 'game-over' && <motion.div key="go" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="w-full h-full"><GameOverScreen /></motion.div>}
         {screen === 'leaderboard' && <motion.div key="lb" initial={{opacity:0,y:50}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-50}} className="w-full h-full"><LeaderboardScreen /></motion.div>}
         {screen === 'settings' && <motion.div key="st" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="w-full h-full"><SettingsScreen /></motion.div>}

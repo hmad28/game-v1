@@ -293,4 +293,14 @@ export const useInventory = () => useGameStore(s => s.inventory);
 export const useGameScreen = () => useGameStore(s => s.screen);
 export const useSelectedCharacter = () => useGameStore(s => s.selectedCharacter);
 export const useNotifications = () => useGameStore(s => s.notifications);
-export const useDialogue = () => useGameStore(s => ({ queue: s.dialogueQueue, isActive: s.isDialogueActive }));
+// FIX #185: Split into two separate primitive selectors instead of returning a new object
+// on every call. Returning { queue, isActive } creates a new object reference every render,
+// which Zustand treats as a change and triggers an infinite re-render loop.
+export const useDialogueQueue = () => useGameStore(s => s.dialogueQueue);
+export const useDialogueActive = () => useGameStore(s => s.isDialogueActive);
+/** @deprecated Use useDialogueQueue + useDialogueActive instead */
+export const useDialogue = () => {
+  const queue = useDialogueQueue();
+  const isActive = useDialogueActive();
+  return { queue, isActive };
+};
