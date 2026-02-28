@@ -6,6 +6,12 @@ import {
 } from '../types/game';
 import { CHARACTERS } from '../types/characters';
 
+// FIX #185: Move gameEventListeners OUTSIDE the Zustand store so mutations to this Map
+// never trigger Zustand state comparisons or React re-renders.
+// Previously it was stored inside the store state, causing every emitGameEvent / onGameEvent
+// call to potentially trigger a re-render cascade.
+const _gameEventListeners: Map<string, ((d: unknown) => void)[]> = new Map();
+
 interface GameStore extends GameState {
   setScreen: (s: GameScreen) => void;
   selectCharacter: (id: CharacterId) => void;
@@ -36,7 +42,6 @@ interface GameStore extends GameState {
   updateSettings: (s: Partial<GameSettings>) => void;
   addLeaderboardEntry: (e: Omit<LeaderboardEntry, 'id'>) => void;
   emitGameEvent: (e: string, d?: unknown) => void;
-  gameEventListeners: Map<string, ((d: unknown) => void)[]>;
   onGameEvent: (e: string, cb: (d: unknown) => void) => () => void;
   resetGame: () => void;
 }
@@ -82,7 +87,6 @@ const IS: GameState = {
 
 export const useGameStore = create<GameStore>()(subscribeWithSelector((set, get) => ({
   ...IS,
-  gameEventListeners: new Map(),
 
   setScreen: (screen) => set({ screen }),
 
@@ -235,7 +239,12 @@ export const useGameStore = create<GameStore>()(subscribeWithSelector((set, get)
   addNotification: (n) => {
     const id = `n_${Date.now()}_${Math.random()}`;
     set(s => ({ notifications: [...s.notifications, { ...n, id }] }));
-    setTimeout(() => get().removeNotification(id), n.duration);
+    // FIX #185: use get() inside the timeout callback so it always reads the latest store
+    // reference — this is safe because get() is a stable reference from Zustand's closure.
+    // The notification is removed by id so even if the component unmounts the state update
+    // is a no-op (filtering an already-absent id produces the same array shape).
+    const duration = typeof n.duration === 'number' && n.duration > 0 ? n.duration : 3000;
+    setTimeout(() => get().removeNotification(id), duration);
   },
   removeNotification: (id) => set(s => ({ notifications: s.notifications.filter(n => n.id !== id) })),
 
@@ -251,21 +260,30 @@ export const useGameStore = create<GameStore>()(subscribeWithSelector((set, get)
     set(s => ({ leaderboard: [...s.leaderboard, { ...e, id }].sort((a, b) => b.score - a.score).slice(0, 100) }));
   },
 
+  // FIX #185: use module-level _gameEventListeners Map (outside Zustand state) so
+  // registering/emitting events never triggers a Zustand state update or React re-render.
   emitGameEvent: (ev, d) => {
-    const ls = get().gameEventListeners.get(ev) || [];
-    ls.forEach(cb => cb(d));
+    const ls = _gameEventListeners.get(ev) || [];
+    ls.forEach(cb => {
+      try { cb(d); } catch (err) { console.error(`[gameStore] emitGameEvent "${ev}" listener threw:`, err); }
+    });
   },
 
   onGameEvent: (ev, cb) => {
-    const ls = get().gameEventListeners.get(ev) || [];
-    get().gameEventListeners.set(ev, [...ls, cb]);
+    const ls = _gameEventListeners.get(ev) || [];
+    _gameEventListeners.set(ev, [...ls, cb]);
+    // Return unsubscribe function — callers MUST call this on unmount to prevent memory leaks
     return () => {
-      const c = get().gameEventListeners.get(ev) || [];
-      get().gameEventListeners.set(ev, c.filter(x => x !== cb));
+      const c = _gameEventListeners.get(ev) || [];
+      _gameEventListeners.set(ev, c.filter(x => x !== cb));
     };
   },
 
-  resetGame: () => set({ ...IS, settings: get().settings, leaderboard: get().leaderboard }),
+  resetGame: () => {
+    // FIX #185: also clear module-level event listeners on full reset to prevent stale callbacks
+    _gameEventListeners.clear();
+    set({ ...IS, settings: get().settings, leaderboard: get().leaderboard });
+  },
 })));
 
 export const usePlayerStats = () => useGameStore(s => s.playerStats);
