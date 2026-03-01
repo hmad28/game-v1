@@ -20,20 +20,28 @@ const PhaserGame = dynamic(() => import('@/components/game/PhaserGame'), {
   ),
 });
 
+// FIX #185: Separate component so PhaserGame only re-renders when currentChapter changes,
+// not on every store update (HP ticks, cooldowns, etc.)
+function GameScreen() {
+  // Subscribe only to the specific slice needed — avoids re-render on every state change
+  const currentChapter = useGameStore(s => s.currentChapter);
+  return (
+    <motion.div key="game" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="w-full h-full relative">
+      <PhaserGame chapterId={currentChapter} />
+      <GameHUD />
+    </motion.div>
+  );
+}
+
 export default function Home() {
+  // FIX #185: useGameScreen uses a selector — only re-renders when `screen` changes
   const screen = useGameScreen();
-  const store = useGameStore();
   return (
     <main className="w-full h-screen overflow-hidden bg-black">
       <AnimatePresence mode="wait">
         {screen === 'main-menu' && <motion.div key="mm" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="w-full h-full"><MainMenu /></motion.div>}
         {screen === 'character-select' && <motion.div key="cs" initial={{opacity:0,x:100}} animate={{opacity:1,x:0}} exit={{opacity:0,x:-100}} className="w-full h-full"><CharacterSelect /></motion.div>}
-        {screen === 'game' && (
-          <motion.div key="game" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="w-full h-full relative">
-            <PhaserGame chapterId={store.currentChapter} />
-            <GameHUD />
-          </motion.div>
-        )}
+        {screen === 'game' && <GameScreen />}
         {screen === 'game-over' && <motion.div key="go" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="w-full h-full"><GameOverScreen /></motion.div>}
         {screen === 'leaderboard' && <motion.div key="lb" initial={{opacity:0,y:50}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-50}} className="w-full h-full"><LeaderboardScreen /></motion.div>}
         {screen === 'settings' && <motion.div key="st" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="w-full h-full"><SettingsScreen /></motion.div>}
